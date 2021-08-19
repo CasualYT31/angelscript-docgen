@@ -160,15 +160,15 @@ namespace {
 					$('#searchbox input').focus();
 			});
 
-			// handle search, need to set same handler to multiple events, so wrap in 
+			// handle search, need to set same handler to multiple events, so wrap in
 			// anonymous function so we don't litter the global namespace
 			(() => {
-				
+
 				let handler = (ev) => {
-					const 
+					const
 						v = ev.target.value.toLowerCase(),
 						m = '[name' + (v.length ? '*=' + v : '') + ']',
-						s = '#content '+m, 
+						s = '#content '+m,
 						h = '#content [name]:not('+m+')';
 					$(h).hide();
 					$(s).show().parents('[name]').show();
@@ -231,7 +231,7 @@ namespace {
 		std::string							m_formatBuffer;
 	};
 
-	DocumentationOutput::DocumentationOutput() 
+	DocumentationOutput::DocumentationOutput()
 		: m_formatBuffer(65536, '\0')
 	{
 	}
@@ -309,7 +309,7 @@ namespace {
 		std::string htmlSafe(std::string text);
 		void regexReplace(std::string& str, const std::regex& regex, const std::function<size_t(std::string& str, const std::cmatch&)>& cb);
 		size_t wrapSpan(std::string& str, size_t strIndex, const char* text, size_t length, const char* cssClass);
-		
+
 		using KeywordMap = std::map<std::string, std::string>;
 		KeywordMap		m_asKeywords;
 		std::regex		m_identifierRegex;
@@ -330,9 +330,9 @@ namespace {
 		if (m_syntaxHighlight) {
 			const char* const keywords[] = {
 				// official keywords
-				"and", "abstract", "auto", "bool", "break", "case", "cast", "catch", "class", "const", "continue", "default", "do", "double", "else", "enum", "explicit", "external ", 
-				"false", "final", "float", "for", "from", "funcdef", "function", "get", "if", "import", "in", "inout", "int", "interface", "int8", "int16", "int32", "int64", "is", 
-				"mixin", "namespace", "not", "null", "or", "out", "override ", "private", "property ", "protected", "return", "set ", "shared ", "super ", "switch", "this ", "true", 
+				"and", "abstract", "auto", "bool", "break", "case", "cast", "catch", "class", "const", "continue", "default", "do", "double", "else", "enum", "explicit", "external ",
+				"false", "final", "float", "for", "from", "funcdef", "function", "get", "if", "import", "in", "inout", "int", "interface", "int8", "int16", "int32", "int64", "is",
+				"mixin", "namespace", "not", "null", "or", "out", "override ", "private", "property ", "protected", "return", "set ", "shared ", "super ", "switch", "this ", "true",
 				"try", "typedef", "uint", "uint8", "uint16", "uint32", "uint64", "void", "while", "xor",
 
 				// not official keywords, but should probably be treated as such
@@ -374,7 +374,7 @@ namespace {
 		}
 		return std::move(text);
 	}
-	
+
 	std::string TextDecorator::decorateDocumentation(std::string text) {
 		text = htmlSafe(text);
 		if (m_linkifyUrls) {
@@ -465,7 +465,7 @@ namespace {
 
 	std::string Base64FileTool::base64encoded() {
 		// C++ port from top answer here: https://stackoverflow.com/questions/342409/how-do-i-base64-encode-decode-in-c
-		static const char encoding_table[] = 
+		static const char encoding_table[] =
 			{	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 				'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
 				'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
@@ -492,7 +492,7 @@ namespace {
 			encoded_data[j++] = encoding_table[(triple >> 1 * 6) & 0x3F];
 			encoded_data[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
 		}
-			
+
 		for (int i = 0; i < mod_table[input_length % 3]; i++)
 			encoded_data[output_length - 1 - i] = '=';
 
@@ -782,6 +782,104 @@ const char* DocumentationGenerator::Impl::LowerCaseTempBuf(const char* text) {
 	return lowercase.c_str();
 }
 
+namespace
+{
+    bool Contains(const std::string& Text, const std::string& What)
+    {
+        if( Text.find(What) != std::string::npos)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    void ReplaceAll(std::string& Text, const std::string& What, const std::string& With)
+    {
+        for(std::string::size_type pos = 0;
+             Text.npos != (pos = Text.find(What.data(), pos, What.length()));
+             pos += With.length())
+        {
+            Text.replace(pos, What.length(), With.data(), With.length());
+        }
+    }
+
+    struct SOperatorMethodName
+    {
+        std::string CodeName; // opAdd etc ...
+        std::string HumanName;
+
+        SOperatorMethodName(const std::string& codeName, const std::string& humanName):
+            CodeName(codeName),
+            HumanName(humanName)
+        {
+        }
+    };
+
+    static SOperatorMethodName operatorToHumanName[] =
+    {
+        {"opNeg", "operator-"},
+        {"opCom", "operator~"},
+        {"opPreInc", "operator++"},
+        {"opPreDec", "operator--"},
+        {"opPostInc", "operator++"},
+        {"opPostDec", "operator--"},
+        {"opEquals", "operator=="},
+        {"opCmp", "operator<"},
+        {"opAssign", "operator="},
+        {"opAddAssign", "operator+="},
+        {"opSubAssign", "operator-="},
+        {"opMulAssign", "operator*="},
+        {"opDivAssign", "operator/="},
+        {"opModAssign", "operator%="},
+        {"opPowAssign", "operator**="},
+        {"opAndAssign", "operator&="},
+        {"opOrAssign", "operator|="},
+        {"opXorAssign", "operator^="},
+        {"opShlAssign", "operator<<="},
+        {"opShrAssign", "operator>>="},
+        {"opUShrAssign", "operator>>>="},
+        {"opAdd", "operator+"},
+        {"opSub", "operator-"},
+        {"opMul", "operator*"},
+        {"opDiv", "operator/"},
+        {"opMod", "operator%"},
+        {"opPow", "operator**"},
+        {"opAnd", "operator&"},
+        {"opOr", "operator|"},
+        {"opXor", "operator^"},
+        {"opShl", "operator<<"},
+        {"opShr", "operator>>"},
+        {"opUShr", "operator>>>"},
+        {"opAdd_r", "operator+"},
+        {"opSub_r", "operator-"},
+        {"opMul_r", "operator*"},
+        {"opDiv_r", "operator/"},
+        {"opMod_r", "operator%"},
+        {"opPow_r", "operator**"},
+        {"opAnd_r", "operator&"},
+        {"opOr_r", "operator|"},
+        {"opXor_r", "operator^"},
+        {"opShl_r", "operator<<"},
+        {"opShr_r", "operator>>"},
+        {"opUShr_r", "operator>>>"},
+        {"opIndex", "operator[]"},
+        {"opCall", "operator()"},
+        {"opHndlAssign", "operator="},
+    };
+
+    void MakeMethodHumanName(std::string& funcName)
+    {
+        for(const auto& i: operatorToHumanName)
+        {
+            if( Contains(funcName, i.CodeName) )
+            {
+                ReplaceAll(funcName, i.CodeName, i.HumanName);
+                break;
+            }
+        }
+    }
+}
+
 void DocumentationGenerator::Impl::GenerateClasses() {
 	const asEBehaviours behaviors[] = { asBEHAVE_CONSTRUCT, asBEHAVE_FACTORY, asBEHAVE_LIST_FACTORY, asBEHAVE_DESTRUCT };
 	std::vector<const asIScriptFunction*> funcs;
@@ -808,7 +906,9 @@ void DocumentationGenerator::Impl::GenerateClasses() {
 					for (int i = 0, c = typeInfo->GetMethodCount(); i < c; ++i) {
 						auto func = typeInfo->GetMethodByIndex(i);
 						funcs.push_back(func);
-						classOverview += std::string("\t") + func->GetDeclaration(false, false, true) + ";\n";
+						std::string funcDecl = func->GetDeclaration(false, false, true);
+						MakeMethodHumanName(funcDecl);
+						classOverview += std::string("\t") + funcDecl + ";\n";
 					}
 					for (int i = 0, c = typeInfo->GetPropertyCount(); i < c; ++i)
 						classOverview += std::string("\t") + typeInfo->GetPropertyDeclaration(i, true) + ";\n";
@@ -822,9 +922,13 @@ void DocumentationGenerator::Impl::GenerateClasses() {
 
 					// list behaviors + methods
 					for (auto func : funcs) {
-						std::string fullName = (std::string(typeInfo->GetName()) + "::" + func->GetName());
+                        std::string funcName = func->GetName();
+                        MakeMethodHumanName(funcName);
+                        std::string funcDecl = func->GetDeclaration(true, false, true);
+                        MakeMethodHumanName(funcDecl);
+						std::string fullName = (std::string(typeInfo->GetName()) + "::" + funcName);
 						GenerateContentBlock(fullName.c_str(), fullName.c_str(), [&]() {
-							output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func->GetDeclaration(true, false, true)).c_str());
+							output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(funcDecl).c_str());
 							const char* documentation = GetDocumentationForFunction(func);
 							if (documentation && *documentation)
 								output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
@@ -878,7 +982,7 @@ const char* DocumentationGenerator::Impl::GetDocumentationForFunction(const asIS
 
 DocumentationGenerator::DocumentationGenerator(asIScriptEngine* engine, const ScriptDocumentationOptions& options)
 	: impl(new Impl(engine, options))
-{	
+{
 }
 
 DocumentationGenerator::~DocumentationGenerator() {
@@ -897,12 +1001,12 @@ int DocumentationGenerator::DocumentObjectMethod(int r, const char* string) {
 	return impl->DocumentFunction(r, string);
 }
 
-int DocumentationGenerator::DocumentInterface(int r, const char* string) { 
+int DocumentationGenerator::DocumentInterface(int r, const char* string) {
 	return impl->DocumentFunction(r, string);
 }
 
-int DocumentationGenerator::DocumentInterfaceMethod(int r, const char* string) { 
-	return impl->DocumentFunction(r, string); 
+int DocumentationGenerator::DocumentInterfaceMethod(int r, const char* string) {
+	return impl->DocumentFunction(r, string);
 }
 
 int DocumentationGenerator::Generate() {

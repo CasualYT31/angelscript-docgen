@@ -1,14 +1,14 @@
 #ifndef ANGELSCRIPT_DOCGEN_H
 #define ANGELSCRIPT_DOCGEN_H
 
-#ifndef ANGELSCRIPT_H 
+#ifndef ANGELSCRIPT_H
 // Avoid having to inform include path if header is already include before
 #include <angelscript.h>
 #endif
 
 // If not otherwise defined beforehand, this define will be set to 1, so that documentation
-// strings end up in the build executable/so/dll. 
-// For a final release build, set this define to 0 in the build to remove all documentation 
+// strings end up in the build executable/so/dll.
+// For a final release build, set this define to 0 in the build to remove all documentation
 // strings from the final executable/so/dll.
 #ifndef AS_GENERATE_DOCUMENTATION
 #define AS_GENERATE_DOCUMENTATION 1
@@ -32,12 +32,12 @@ enum : int {
 
 struct ScriptDocumentationOptions {
 	// output options
-	const char*		outputFile = "documentation.html";					// local file where output will be written to
-	bool			includeStringInterface = false;						// should - if registered - the string object type be included in the documentation?
-	bool			includeArrayInterface = false;						// should - if registered - the array object type be included in the documentation?
-	bool			includeRefInterface = false;						// should - if registered - the ref object type be included in the documentation?
-	bool			includeWeakRefInterface = false;					// should - if registered - the weakref object type be included in the documentation?
-	bool			addTimestamp = true;								// outputs date + time underneath summary 
+	const char*		outputFile = "angelscript_api.html";					// local file where output will be written to
+	bool			includeStringInterface = true;						// should - if registered - the string object type be included in the documentation?
+	bool			includeArrayInterface = true;						// should - if registered - the array object type be included in the documentation?
+	bool			includeRefInterface = true;						// should - if registered - the ref object type be included in the documentation?
+	bool			includeWeakRefInterface = true;					// should - if registered - the weakref object type be included in the documentation?
+	bool			addTimestamp = true;								// outputs date + time underneath summary
 	bool			syntaxHighlight = true;								// performs syntax highlighting on the function signatures
 	bool			nl2br = true;										// if true, makes "\n" in documentation strings automatically convert to <br/>
 	bool			htmlSafe = true;									// if true, makes "&, "<" and ">" in documentation strings automatically convert to "&amp;", "&lt;" and "&gt;" resp.
@@ -61,7 +61,7 @@ struct ScriptDocumentationOptions {
 	const char*		headerBackgroundColor = "#2d2d30";					// CSS color spec for header background color
 	const char*		headerForegroundColor = "#f1f1f1";					// CSS color spec for header text color
 	const char*		headerBorder = "2px solid #007acc";					// CSS border spec for header bottom border
-	const char*		textHeaderColor = "#007acc";						// CSS color spec for <h1>, <h2> etc headers 
+	const char*		textHeaderColor = "#007acc";						// CSS color spec for <h1>, <h2> etc headers
 	const char*		linkColor = "#dcdcaa";								// CSS color spec for <a href> links
 	const char*		blockBackgroundColor = "#222222";					// CSS color spec for content block background color
 	const char*		blockBorder = "1px solid #b1b1b1";					// CSS border spec for content blocks
@@ -71,7 +71,7 @@ struct ScriptDocumentationOptions {
 	const char*		asValueTypeColor = "#ff8000";						// CSS color spec for value (class) types in displayed AngelScript code
 	const char*		asClassTypeColor = "#4ec9b0";						// CSS color spec for non-value reference class types in displayed AngelScript code
 	const char*		summaryWidth = "300px";								// CSS width spec for width of summary on the left
-	
+
 	// raw CSS/JS that will be appended after the main CSS and JS
 	const char*		additionalCss = nullptr;							// additional CSS that will be added at the bottom of the style sheet, so can be used to override anything
 	const char*		additionalJavascript = nullptr;						// additional JavaScript that will be added at the bottom of the document.ready handler, so can be used to override anything
