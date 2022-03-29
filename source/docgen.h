@@ -91,6 +91,8 @@ public:
 	~DocumentationGenerator();
 	int DocumentGlobalFunction(int r, const char* string);
 	int DocumentObjectType(int r, const char* string);
+	int DocumentObjectEnum(int r, const char* string);
+	int DocumentObjectFuncDef(int r, const char* string);
 	int DocumentObjectMethod(int r, const char* string);
 	int DocumentInterface(int r, const char* string);
 	int DocumentInterfaceMethod(int r, const char* string);

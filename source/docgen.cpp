@@ -289,9 +289,9 @@ namespace {
 			file.open(outputFile, std::ios_base::binary);
 			file << output;
 			file.close();
-			return asDOCGEN_Success;
+			return AngelScript::asDOCGEN_Success;
 		} catch (const std::exception&) {
-			return asDOCGEN_FailedToWriteFile;
+			return AngelScript::asDOCGEN_FailedToWriteFile;
 		}
 	}
 
@@ -300,7 +300,7 @@ namespace {
 	class TextDecorator {
 	public:
 		TextDecorator(bool syntaxHighlight, bool nl2br, bool htmlSafe, bool linkifyUrls);
-		void appendObjectType(const asITypeInfo* typeInfo);
+		void appendObjectType(const AngelScript::asITypeInfo* typeInfo);
 
 		std::string decorateAngelScript(std::string text);
 		std::string decorateDocumentation(std::string text);
@@ -347,9 +347,9 @@ namespace {
 		}
 	}
 
-	void TextDecorator::appendObjectType(const asITypeInfo* typeInfo) {
+	void TextDecorator::appendObjectType(const AngelScript::asITypeInfo* typeInfo) {
 		if (m_syntaxHighlight)
-			m_asKeywords[typeInfo->GetName()] = typeInfo->GetFlags() & asOBJ_VALUE ? "AS-valuetype" : "AS-classtype";
+			m_asKeywords[typeInfo->GetName()] = typeInfo->GetFlags() & AngelScript::asOBJ_VALUE ? "AS-valuetype" : "AS-classtype";
 	}
 
 	std::string TextDecorator::decorateAngelScript(std::string text) {
@@ -507,6 +507,8 @@ class DocumentationGenerator::Impl {
 public:
 	Impl(asIScriptEngine* engine, const ScriptDocumentationOptions& options);
 	int DocumentFunction(int funcId, const char* string);
+	int DocumentEnum(int typeId, const char* string);
+	int DocumentFuncDef(int typeId, const char* string);
 	int DocumentType(int typeId, const char* string);
 	int generate();
 
@@ -515,6 +517,8 @@ private:
 	void GenerateContentBlock(const char* title, const char* name, const std::function<void(void)>& cb);
 	void GenerateClasses();
 	void GenerateGlobalFunctions();
+	void GenerateEnums();
+	void GenerateFuncDefs();
 private:
 	struct SummaryNode;
 	using SummaryNodeVector = std::vector<SummaryNode>;
@@ -535,14 +539,19 @@ private:
 		}
 	};
 	using ObjectTypeSet = std::set<const asITypeInfo*, ObjectTypeComparator>;
+	using EnumTypeSet = std::set<const asITypeInfo*, ObjectTypeComparator>;
+	using FuncDefTypeSet = std::set<const asITypeInfo*, ObjectTypeComparator>;
 
 	SummaryNodeVector CreateSummary();
 	void OutputSummary(const SummaryNodeVector& nodes);
 	const char* LowerCaseTempBuf(const char* text);
 	int Prepare();
+	std::string GetNamespacedName(const asITypeInfo* type) const;
+	std::string GetNamespacedName(const asIScriptFunction* function) const;
 	const char* GetDocumentationForType(const asITypeInfo* type) const;
+	const char* GetDocumentationForEnumType(const asITypeInfo* type) const;
 	const char* GetDocumentationForFunction(const asIScriptFunction* function) const;
-
+	const char* GetDocumentationForFuncDefType(const asITypeInfo* type) const;
 	// our input
 	asIScriptEngine*						engine;
 	ScriptDocumentationOptions				options;
@@ -550,6 +559,8 @@ private:
 	// documentation strings by pointer
 	std::map<const asIScriptFunction*, std::string>	functionDocumentation;
 	std::map<const asITypeInfo*, std::string>		objectTypeDocumentation;
+	std::map<const asITypeInfo*, std::string>		enumTypeDocumentation;
+	std::map<const asITypeInfo*, std::string>		funcDefTypeDocumentation;
 
 	// our helper objects
 	DocumentationOutput						output;
@@ -559,6 +570,8 @@ private:
 	// our state
 	std::vector<const asIScriptFunction*>	globalFunctions;
 	ObjectTypeSet							objectTypes;
+	EnumTypeSet								enumTypes;
+	FuncDefTypeSet							funcDefTypes;
 };
 
 DocumentationGenerator::Impl::Impl(asIScriptEngine* engine, const ScriptDocumentationOptions& options)
@@ -634,6 +647,18 @@ int DocumentationGenerator::Impl::Prepare() {
 		});
 	}
 
+	//enums
+	for (int t = 0, tcount = engine->GetEnumCount(); t < tcount; ++t) {
+		const asITypeInfo* const typeInfo = engine->GetEnumByIndex(t);
+		enumTypes.insert(typeInfo);
+	}
+
+	//function pointer types
+	for (int t = 0, tcount = engine->GetFuncdefCount(); t < tcount; ++t) {
+		const asITypeInfo* const typeInfo = engine->GetFuncdefByIndex(t);
+		funcDefTypes.insert(typeInfo);
+	}
+
 	// get and sort all object types
 	for (int t = 0, tcount = engine->GetObjectTypeCount(); t < tcount; ++t) {
 		const asITypeInfo* const typeInfo = engine->GetObjectTypeByIndex(t);
@@ -651,6 +676,15 @@ int DocumentationGenerator::Impl::Prepare() {
 	// append all types to the decorator
 	for (const auto type : objectTypes)
 		decorator.appendObjectType(type);
+
+	// append all types to the decorator
+	for (const auto type : enumTypes)
+		decorator.appendObjectType(type);
+
+	// append all types to the decorator
+	for (const auto type : funcDefTypes)
+		decorator.appendObjectType(type);
+
 	return asDOCGEN_Success;
 }
 
@@ -678,6 +712,8 @@ int DocumentationGenerator::Impl::generate() {
 	output.appendRaw(R"^(<div id="content">)^");
 	GenerateClasses();
 	GenerateGlobalFunctions();
+	GenerateEnums();
+	GenerateFuncDefs();
 	output.appendRaw(R"^(</div>)^");
 
 	// finish HTML and output
@@ -713,41 +749,137 @@ void DocumentationGenerator::Impl::GenerateGlobalFunctions() {
 	// create output
 	GenerateSubHeader(1, "Global Functions", "___globalfunctions", [&]() {
 		for (auto func : globalFunctions)
-			GenerateContentBlock(func->GetName(), func->GetName(), [&]() {
-			output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func->GetDeclaration(true, true, true)).c_str());
-			const char* documentation = GetDocumentationForFunction(func);
-			if (documentation && *documentation)
-				output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
-		});
+		{
+			std::string namespacedName = GetNamespacedName(func);
+			GenerateContentBlock(namespacedName.c_str(), func->GetName(), [&]() {
+				output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func->GetDeclaration(true, true, true)).c_str());
+				const char* documentation = GetDocumentationForFunction(func);
+				if (documentation && *documentation)
+					output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
+				});
+		}
 	});
 }
+
+void DocumentationGenerator::Impl::GenerateFuncDefs()
+{
+	// bail if nothing to do
+	if (funcDefTypes.empty())
+		return;
+
+	// create output
+	GenerateSubHeader(1, "Function Definitions", "___funcdeftypes", [&]() {
+		for (const AngelScript::asITypeInfo* e : funcDefTypes)
+		{
+			std::string namespacedName = GetNamespacedName(e);
+			GenerateSubHeader(2, namespacedName.c_str(), e->GetName(), [&]() {
+				GenerateContentBlock(namespacedName.c_str(), e->GetName(), [&]() {
+					AngelScript::asIScriptFunction* func = e->GetFuncdefSignature();
+					output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func->GetDeclaration(true, true, true)).c_str());
+					const char* documentation = GetDocumentationForFuncDefType(e);
+					if (documentation && *documentation)
+						output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
+					});
+				});
+		}
+		});
+}
+
+void DocumentationGenerator::Impl::GenerateEnums()
+{
+	// bail if nothing to do
+	if (enumTypes.empty())
+		return;
+
+	// create output
+	GenerateSubHeader(1, "Enum Types", "___enumtypes", [&]() {
+		for (const AngelScript::asITypeInfo* e : enumTypes)
+		{
+			std::string namespacedName = GetNamespacedName(e);
+			GenerateSubHeader(2, namespacedName.c_str(), e->GetName(), [&]() {
+				GenerateContentBlock(namespacedName.c_str(), e->GetName(), [&]() {
+					const char* documentation = GetDocumentationForEnumType(e);
+					if (documentation && *documentation)
+						output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
+
+					for (AngelScript::asUINT eIndex = 0; eIndex < e->GetEnumValueCount(); ++eIndex) {
+						int value = 0;
+						const char* szName = e->GetEnumValueByIndex(eIndex, &value);
+
+						if (szName)
+						{
+							char szBuffer[128] = { 0 };
+							std::string name = szName;
+							std::string doc = namespacedName + std::string("::") + szName + std::string(" = ") + itoa(value, szBuffer, 10);
+							output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(doc).c_str());
+						}
+					}
+					});
+				});
+		}
+		});
+}
+
 
 DocumentationGenerator::Impl::SummaryNodeVector DocumentationGenerator::Impl::CreateSummary() {
 	SummaryNodeVector functionNodes;
 	std::set<std::string> seenFunctions;
 	for (auto func : globalFunctions) {
 		if (seenFunctions.insert(func->GetName()).second)
+		{
+			std::string namespacedName = GetNamespacedName(func);
 			functionNodes.emplace_back(SummaryNode{
-				func->GetName(),
+				namespacedName.c_str(),
 				LowerCaseTempBuf(func->GetName()),
-			});
+				});
+		}
 	}
 
 	SummaryNodeVector valueTypes, classes;
 	for (auto typeInfo : objectTypes) {
+		std::string namespacedName = GetNamespacedName(typeInfo);
 		SummaryNodeVector& v = (typeInfo->GetFlags() & asOBJ_VALUE) ? valueTypes : classes;
 		v.emplace_back(SummaryNode{
-			typeInfo->GetName(),
+			namespacedName.c_str(),
+			LowerCaseTempBuf(typeInfo->GetName()),
+		});
+	}
+
+	SummaryNodeVector enumSummary;
+	for (auto typeInfo : enumTypes) {
+		std::string namespacedName = GetNamespacedName(typeInfo);
+		enumSummary.emplace_back(SummaryNode{
+			namespacedName.c_str(),
+			LowerCaseTempBuf(typeInfo->GetName()),
+			});
+	}
+
+	SummaryNodeVector funcDefSummary;
+	for (auto typeInfo : funcDefTypes) {
+		std::string namespacedName = GetNamespacedName(typeInfo);
+		funcDefSummary.emplace_back(SummaryNode{
+			namespacedName.c_str(),
 			LowerCaseTempBuf(typeInfo->GetName()),
 		});
 	}
 
 	return {
 		{
+			"Enum Types",
+			"___enumtypes",
+			std::move(enumSummary),
+		},
+		{
+			"Function Definitions",
+			"___funcdeftypes",
+			std::move(funcDefSummary),
+		},
+		{
 			"Value Types",
 			"___valuetypes",
 			std::move(valueTypes),
-		},			{
+		},
+		{
 			"Classes",
 			"___classes",
 			std::move(classes),
@@ -890,9 +1022,10 @@ void DocumentationGenerator::Impl::GenerateClasses() {
 				if (!!(typeInfo->GetFlags() & asOBJ_VALUE) != valueTypes)
 					continue;
 
-				GenerateSubHeader(2, typeInfo->GetName(), typeInfo->GetName(), [&]() {
+				std::string namespacedName = GetNamespacedName(typeInfo);
+				GenerateSubHeader(2, namespacedName.c_str(), typeInfo->GetName(), [&]() {
 					// list overview (fake class)
-					std::string classOverview = std::string("class ") + typeInfo->GetNamespace() + typeInfo->GetName() + " {\n";
+					std::string classOverview = std::string("class ") + typeInfo->GetNamespace() + std::string("::") + typeInfo->GetName() + " {\n";
 					funcs.clear();
 					for (auto beh : behaviors)
 						for (int i = 0, c = typeInfo->GetBehaviourCount(); i < c; ++i) {
@@ -944,6 +1077,42 @@ void DocumentationGenerator::Impl::GenerateClasses() {
 	generate(false);
 }
 
+std::string DocumentationGenerator::Impl::GetNamespacedName(const asITypeInfo* type) const
+{
+	if (type)
+	{
+		if (type->GetNamespace() && strlen(type->GetNamespace()) > 0)
+		{
+			return type->GetNamespace() + std::string("::") + type->GetName();
+		}
+		else
+		{
+			return type->GetName();
+		}
+	}
+
+	return "";
+}
+
+
+std::string DocumentationGenerator::Impl::GetNamespacedName(const asIScriptFunction* function) const
+{
+    if (function)
+    {
+        if (function->GetNamespace() && strlen(function->GetNamespace()) > 0)
+        {
+            return function->GetNamespace() + std::string("::") + function->GetName();
+        }
+        else
+        {
+            return function->GetName();
+        }
+    }
+
+    return "";
+}
+
+
 int DocumentationGenerator::Impl::DocumentFunction(int funcId, const char* string) {
 	if (funcId >= 0) {
 		const asIScriptFunction* function = engine->GetFunctionById(funcId);
@@ -953,6 +1122,31 @@ int DocumentationGenerator::Impl::DocumentFunction(int funcId, const char* strin
 			return asDOCGEN_AlreadyDocumented;
 	}
 	return funcId;
+}
+
+
+int DocumentationGenerator::Impl::DocumentEnum(int typeId, const char* string)
+{
+	if (typeId >= 0) {
+		const asITypeInfo* type = engine->GetTypeInfoById(typeId);
+		if (!type)
+			return asDOCGEN_CouldNotFindTypeById;
+		if (!enumTypeDocumentation.insert({ type, {string} }).second)
+			return asDOCGEN_AlreadyDocumented;
+	}
+	return typeId;
+}
+
+int DocumentationGenerator::Impl::DocumentFuncDef(int typeId, const char* string)
+{
+	if (typeId >= 0) {
+		const asITypeInfo* type = engine->GetTypeInfoById(typeId);
+		if (!type)
+			return asDOCGEN_CouldNotFindTypeById;
+		if (!funcDefTypeDocumentation.insert({ type, {string} }).second)
+			return asDOCGEN_AlreadyDocumented;
+	}
+	return typeId;
 }
 
 int DocumentationGenerator::Impl::DocumentType(int typeId, const char* string) {
@@ -972,6 +1166,24 @@ const char* DocumentationGenerator::Impl::GetDocumentationForType(const asITypeI
 		return it->second.c_str();
 	return "";
 }
+
+const char* DocumentationGenerator::Impl::GetDocumentationForEnumType(const asITypeInfo* type) const
+{
+	auto it = enumTypeDocumentation.find(type);
+	if (it != enumTypeDocumentation.end())
+		return it->second.c_str();
+	return "";
+}
+
+
+const char* DocumentationGenerator::Impl::GetDocumentationForFuncDefType(const asITypeInfo* type) const
+{
+	auto it = funcDefTypeDocumentation.find(type);
+	if (it != funcDefTypeDocumentation.end())
+		return it->second.c_str();
+	return "";
+}
+
 
 const char* DocumentationGenerator::Impl::GetDocumentationForFunction(const asIScriptFunction* function) const {
 	auto it = functionDocumentation.find(function);
@@ -1011,6 +1223,14 @@ int DocumentationGenerator::DocumentInterfaceMethod(int r, const char* string) {
 
 int DocumentationGenerator::Generate() {
 	return impl->generate();
+}
+
+int DocumentationGenerator::DocumentObjectEnum(int r, const char* string){
+	return impl->DocumentEnum(r, string);
+}
+
+int DocumentationGenerator::DocumentObjectFuncDef(int r, const char* string){
+	return impl->DocumentFuncDef(r, string);
 }
 
 END_AS_NAMESPACE

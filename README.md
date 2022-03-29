@@ -26,6 +26,12 @@ The add-on has been tested with AngelScript 2.34 only.
 - Has a search function built in, so script writers can quickly search for keywords
 - Automatically differentiates between value object types and reference object types, and highlights them differently.
 
+## Addional Features ZEROPERIL
+
+- Added enums
+- Added function pointer/function definitions
+- Added namespaces to everything
+
 ## Dependencies
 
 - The generated HTML file depends on jQuery. This is used through a CDN, so there is no need to ship it with the generated file.
