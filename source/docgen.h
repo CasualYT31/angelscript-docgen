@@ -32,7 +32,7 @@ enum : int {
 
 struct ScriptDocumentationOptions {
 	// output options
-	const char*		outputFile = "angelscript_api.html";					// local file where output will be written to
+	std::string		outputFile = "angelscript_api.html";					// local file where output will be written to
 	bool			includeStringInterface = true;						// should - if registered - the string object type be included in the documentation?
 	bool			includeArrayInterface = true;						// should - if registered - the array object type be included in the documentation?
 	bool			includeRefInterface = true;						// should - if registered - the ref object type be included in the documentation?

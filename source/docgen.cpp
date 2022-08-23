@@ -718,7 +718,7 @@ int DocumentationGenerator::Impl::generate() {
 
 	// finish HTML and output
 	output.append(HtmlEnd);
-	return output.writeToFile(options.outputFile);
+	return output.writeToFile(options.outputFile.c_str());
 }
 
 void DocumentationGenerator::Impl::GenerateSubHeader(int level, const char* title, const char* name, const std::function<void(void)>& cb) {
