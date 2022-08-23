@@ -577,7 +577,6 @@ private:
 	ObjectTypeSet							objectTypes;
 	EnumTypeSet								enumTypes;
 	FuncDefTypeSet							funcDefTypes;
-	std::vector<const char*>				expectedFunctions;
 };
 
 DocumentationGenerator::Impl::Impl(asIScriptEngine* engine, const ScriptDocumentationOptions& options)
@@ -750,16 +749,16 @@ void DocumentationGenerator::Impl::GenerateContentBlock(const char* title, const
 
 void DocumentationGenerator::Impl::GenerateExpectedFunctions() {
 	// bail if nothing to do
-	if (expectedFunctions.empty())
+	if (expectedFunctionDocumentation.empty())
 		return;
 	
 	// create output
 	GenerateSubHeader(1, "Expected Functions", "___expectedfunctions", [&]() {
-		for (auto func : expectedFunctions)
+		for (auto func : expectedFunctionDocumentation)
 		{
-			GenerateContentBlock("", func, [&]() {
-				output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func).c_str());
-				const char* documentation = GetDocumentationForExpectedFunction(func);
+			GenerateContentBlock("", func.first, [&]() {
+				output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func.first).c_str());
+				const char* documentation = GetDocumentationForExpectedFunction(func.first);
 				if (documentation && *documentation)
 					output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
 			});
@@ -1271,6 +1270,10 @@ int DocumentationGenerator::DocumentObjectEnum(int r, const char* string){
 
 int DocumentationGenerator::DocumentObjectFuncDef(int r, const char* string){
 	return impl->DocumentFuncDef(r, string);
+}
+
+void DocumentationGenerator::DocumentExpectedFunction(const std::string& decl, const char* desc) {
+	return impl->DocumentExpectedFunction(decl, desc);
 }
 
 END_AS_NAMESPACE
