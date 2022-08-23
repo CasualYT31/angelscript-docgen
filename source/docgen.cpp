@@ -747,6 +747,17 @@ void DocumentationGenerator::Impl::GenerateContentBlock(const char* title, const
 	output.appendRaw("</div>\n");
 }
 
+std::string extractName(const std::string& decl) {
+	if (decl.find('(') == std::string::npos)
+		return decl;
+	std::string ret;
+	ret = decl.substr(0, decl.find('('));
+	if (ret.rfind(' ') == std::string::npos)
+		return ret;
+	else
+		return ret.substr(ret.rfind(' ') + 1);
+};
+
 void DocumentationGenerator::Impl::GenerateExpectedFunctions() {
 	// bail if nothing to do
 	if (expectedFunctionDocumentation.empty())
@@ -756,7 +767,7 @@ void DocumentationGenerator::Impl::GenerateExpectedFunctions() {
 	GenerateSubHeader(1, "Expected Functions", "___expectedfunctions", [&]() {
 		for (auto func : expectedFunctionDocumentation)
 		{
-			GenerateContentBlock("", func.first.c_str(), [&]() {
+			GenerateContentBlock("", extractName(func.first).c_str(), [&]() {
 				output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func.first).c_str());
 				const char* documentation = GetDocumentationForExpectedFunction(func.first);
 				if (documentation && *documentation)
@@ -888,6 +899,15 @@ DocumentationGenerator::Impl::SummaryNodeVector DocumentationGenerator::Impl::Cr
 		});
 	}
 
+	SummaryNodeVector expectedFunctionNodes;
+	for (auto func : expectedFunctionDocumentation) {
+		std::string name = extractName(func.first);
+		expectedFunctionNodes.emplace_back(SummaryNode{
+			name.c_str(),
+			LowerCaseTempBuf(name.c_str()),
+			});
+	}
+
 	return {
 		{
 			"Enum Types",
@@ -908,6 +928,11 @@ DocumentationGenerator::Impl::SummaryNodeVector DocumentationGenerator::Impl::Cr
 			"Classes",
 			"___classes",
 			std::move(classes),
+		},
+		{
+			"Expected Functions",
+			"___expectedfunctions",
+			std::move(expectedFunctionNodes),
 		},
 		{
 			"Global Functions",
