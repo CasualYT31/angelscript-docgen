@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <unordered_map>
 #include <functional>
 #include <algorithm>
 #include <regex>
@@ -289,9 +290,9 @@ namespace {
 			file.open(outputFile, std::ios_base::binary);
 			file << output;
 			file.close();
-			return AngelScript::asDOCGEN_Success;
+			return asDOCGEN_Success;
 		} catch (const std::exception&) {
-			return AngelScript::asDOCGEN_FailedToWriteFile;
+			return asDOCGEN_FailedToWriteFile;
 		}
 	}
 
@@ -300,7 +301,7 @@ namespace {
 	class TextDecorator {
 	public:
 		TextDecorator(bool syntaxHighlight, bool nl2br, bool htmlSafe, bool linkifyUrls);
-		void appendObjectType(const AngelScript::asITypeInfo* typeInfo);
+		void appendObjectType(const asITypeInfo* typeInfo);
 
 		std::string decorateAngelScript(std::string text);
 		std::string decorateDocumentation(std::string text);
@@ -347,9 +348,9 @@ namespace {
 		}
 	}
 
-	void TextDecorator::appendObjectType(const AngelScript::asITypeInfo* typeInfo) {
+	void TextDecorator::appendObjectType(const asITypeInfo* typeInfo) {
 		if (m_syntaxHighlight)
-			m_asKeywords[typeInfo->GetName()] = typeInfo->GetFlags() & AngelScript::asOBJ_VALUE ? "AS-valuetype" : "AS-classtype";
+			m_asKeywords[typeInfo->GetName()] = typeInfo->GetFlags() & asOBJ_VALUE ? "AS-valuetype" : "AS-classtype";
 	}
 
 	std::string TextDecorator::decorateAngelScript(std::string text) {
@@ -510,6 +511,7 @@ public:
 	int DocumentEnum(int typeId, const char* string);
 	int DocumentFuncDef(int typeId, const char* string);
 	int DocumentType(int typeId, const char* string);
+	void DocumentExpectedFunction(const std::string& decl, const char* desc);
 	int generate();
 
 private:
@@ -519,6 +521,7 @@ private:
 	void GenerateGlobalFunctions();
 	void GenerateEnums();
 	void GenerateFuncDefs();
+	void GenerateExpectedFunctions();
 private:
 	struct SummaryNode;
 	using SummaryNodeVector = std::vector<SummaryNode>;
@@ -552,6 +555,7 @@ private:
 	const char* GetDocumentationForEnumType(const asITypeInfo* type) const;
 	const char* GetDocumentationForFunction(const asIScriptFunction* function) const;
 	const char* GetDocumentationForFuncDefType(const asITypeInfo* type) const;
+	const char* GetDocumentationForExpectedFunction(const std::string& decl) const;
 	// our input
 	asIScriptEngine*						engine;
 	ScriptDocumentationOptions				options;
@@ -561,6 +565,7 @@ private:
 	std::map<const asITypeInfo*, std::string>		objectTypeDocumentation;
 	std::map<const asITypeInfo*, std::string>		enumTypeDocumentation;
 	std::map<const asITypeInfo*, std::string>		funcDefTypeDocumentation;
+	std::unordered_map<std::string, std::string>	expectedFunctionDocumentation;
 
 	// our helper objects
 	DocumentationOutput						output;
@@ -677,11 +682,11 @@ int DocumentationGenerator::Impl::Prepare() {
 	for (const auto type : objectTypes)
 		decorator.appendObjectType(type);
 
-	// append all types to the decorator
+	// append all enums to the decorator
 	for (const auto type : enumTypes)
 		decorator.appendObjectType(type);
 
-	// append all types to the decorator
+	// append all function definitions to the decorator
 	for (const auto type : funcDefTypes)
 		decorator.appendObjectType(type);
 
@@ -711,6 +716,7 @@ int DocumentationGenerator::Impl::generate() {
 	// output content
 	output.appendRaw(R"^(<div id="content">)^");
 	GenerateClasses();
+	GenerateExpectedFunctions();
 	GenerateGlobalFunctions();
 	GenerateEnums();
 	GenerateFuncDefs();
@@ -741,6 +747,37 @@ void DocumentationGenerator::Impl::GenerateContentBlock(const char* title, const
 	output.appendRaw("</div>\n");
 }
 
+std::string extractName(const std::string& decl) {
+	if (decl.find('(') == std::string::npos)
+		return decl;
+	std::string ret;
+	ret = decl.substr(0, decl.find('('));
+	if (ret.rfind(' ') == std::string::npos)
+		return ret;
+	else
+		return ret.substr(ret.rfind(' ') + 1);
+};
+
+void DocumentationGenerator::Impl::GenerateExpectedFunctions() {
+	// bail if nothing to do
+	if (expectedFunctionDocumentation.empty())
+		return;
+	
+	// create output
+	GenerateSubHeader(1, "Expected Functions", "___expectedfunctions", [&]() {
+		for (auto func : expectedFunctionDocumentation)
+		{
+			std::string funcName = extractName(func.first);
+			GenerateContentBlock(funcName.c_str(), funcName.c_str(), [&]() {
+				output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func.first).c_str());
+				const char* documentation = GetDocumentationForExpectedFunction(func.first);
+				if (documentation && *documentation)
+					output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
+			});
+		}
+	});
+}
+
 void DocumentationGenerator::Impl::GenerateGlobalFunctions() {
 	// bail if nothing to do
 	if (globalFunctions.empty())
@@ -769,12 +806,12 @@ void DocumentationGenerator::Impl::GenerateFuncDefs()
 
 	// create output
 	GenerateSubHeader(1, "Function Definitions", "___funcdeftypes", [&]() {
-		for (const AngelScript::asITypeInfo* e : funcDefTypes)
+		for (const asITypeInfo* e : funcDefTypes)
 		{
 			std::string namespacedName = GetNamespacedName(e);
 			GenerateSubHeader(2, namespacedName.c_str(), e->GetName(), [&]() {
 				GenerateContentBlock(namespacedName.c_str(), e->GetName(), [&]() {
-					AngelScript::asIScriptFunction* func = e->GetFuncdefSignature();
+					asIScriptFunction* func = e->GetFuncdefSignature();
 					output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func->GetDeclaration(true, true, true)).c_str());
 					const char* documentation = GetDocumentationForFuncDefType(e);
 					if (documentation && *documentation)
@@ -793,7 +830,7 @@ void DocumentationGenerator::Impl::GenerateEnums()
 
 	// create output
 	GenerateSubHeader(1, "Enum Types", "___enumtypes", [&]() {
-		for (const AngelScript::asITypeInfo* e : enumTypes)
+		for (const asITypeInfo* e : enumTypes)
 		{
 			std::string namespacedName = GetNamespacedName(e);
 			GenerateSubHeader(2, namespacedName.c_str(), e->GetName(), [&]() {
@@ -802,7 +839,7 @@ void DocumentationGenerator::Impl::GenerateEnums()
 					if (documentation && *documentation)
 						output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
 
-					for (AngelScript::asUINT eIndex = 0; eIndex < e->GetEnumValueCount(); ++eIndex) {
+					for (asUINT eIndex = 0; eIndex < e->GetEnumValueCount(); ++eIndex) {
 						int value = 0;
 						const char* szName = e->GetEnumValueByIndex(eIndex, &value);
 
@@ -863,6 +900,15 @@ DocumentationGenerator::Impl::SummaryNodeVector DocumentationGenerator::Impl::Cr
 		});
 	}
 
+	SummaryNodeVector expectedFunctionNodes;
+	for (auto func : expectedFunctionDocumentation) {
+		std::string name = extractName(func.first);
+		expectedFunctionNodes.emplace_back(SummaryNode{
+			name.c_str(),
+			LowerCaseTempBuf(name.c_str()),
+			});
+	}
+
 	return {
 		{
 			"Enum Types",
@@ -883,6 +929,11 @@ DocumentationGenerator::Impl::SummaryNodeVector DocumentationGenerator::Impl::Cr
 			"Classes",
 			"___classes",
 			std::move(classes),
+		},
+		{
+			"Expected Functions",
+			"___expectedfunctions",
+			std::move(expectedFunctionNodes),
 		},
 		{
 			"Global Functions",
@@ -1160,6 +1211,13 @@ int DocumentationGenerator::Impl::DocumentType(int typeId, const char* string) {
 	return typeId;
 }
 
+void DocumentationGenerator::Impl::DocumentExpectedFunction(const std::string& decl, const char* desc) {
+	if (decl.size() > 0) {
+		// attempt to insert
+		expectedFunctionDocumentation.insert({decl, {desc}});
+	}
+}
+
 const char* DocumentationGenerator::Impl::GetDocumentationForType(const asITypeInfo* type) const {
 	auto it = objectTypeDocumentation.find(type);
 	if (it != objectTypeDocumentation.end())
@@ -1188,6 +1246,13 @@ const char* DocumentationGenerator::Impl::GetDocumentationForFuncDefType(const a
 const char* DocumentationGenerator::Impl::GetDocumentationForFunction(const asIScriptFunction* function) const {
 	auto it = functionDocumentation.find(function);
 	if (it != functionDocumentation.end())
+		return it->second.c_str();
+	return "";
+}
+
+const char* DocumentationGenerator::Impl::GetDocumentationForExpectedFunction(const std::string& decl) const {
+	auto it = expectedFunctionDocumentation.find(decl);
+	if (it != expectedFunctionDocumentation.end())
 		return it->second.c_str();
 	return "";
 }
@@ -1231,6 +1296,10 @@ int DocumentationGenerator::DocumentObjectEnum(int r, const char* string){
 
 int DocumentationGenerator::DocumentObjectFuncDef(int r, const char* string){
 	return impl->DocumentFuncDef(r, string);
+}
+
+void DocumentationGenerator::DocumentExpectedFunction(const std::string& decl, const char* desc) {
+	return impl->DocumentExpectedFunction(decl, desc);
 }
 
 END_AS_NAMESPACE
