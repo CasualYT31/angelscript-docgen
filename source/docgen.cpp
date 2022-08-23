@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <unordered_map>
 #include <functional>
 #include <algorithm>
 #include <regex>
@@ -510,6 +511,7 @@ public:
 	int DocumentEnum(int typeId, const char* string);
 	int DocumentFuncDef(int typeId, const char* string);
 	int DocumentType(int typeId, const char* string);
+	void DocumentExpectedFunction(const std::string& decl, const char* desc);
 	int generate();
 
 private:
@@ -519,6 +521,7 @@ private:
 	void GenerateGlobalFunctions();
 	void GenerateEnums();
 	void GenerateFuncDefs();
+	void GenerateExpectedFunctions();
 private:
 	struct SummaryNode;
 	using SummaryNodeVector = std::vector<SummaryNode>;
@@ -552,6 +555,7 @@ private:
 	const char* GetDocumentationForEnumType(const asITypeInfo* type) const;
 	const char* GetDocumentationForFunction(const asIScriptFunction* function) const;
 	const char* GetDocumentationForFuncDefType(const asITypeInfo* type) const;
+	const char* GetDocumentationForExpectedFunction(const char* decl) const;
 	// our input
 	asIScriptEngine*						engine;
 	ScriptDocumentationOptions				options;
@@ -561,6 +565,7 @@ private:
 	std::map<const asITypeInfo*, std::string>		objectTypeDocumentation;
 	std::map<const asITypeInfo*, std::string>		enumTypeDocumentation;
 	std::map<const asITypeInfo*, std::string>		funcDefTypeDocumentation;
+	std::unordered_map<std::string, std::string>	expectedFunctionDocumentation;
 
 	// our helper objects
 	DocumentationOutput						output;
@@ -572,6 +577,7 @@ private:
 	ObjectTypeSet							objectTypes;
 	EnumTypeSet								enumTypes;
 	FuncDefTypeSet							funcDefTypes;
+	std::vector<const char*>				expectedFunctions;
 };
 
 DocumentationGenerator::Impl::Impl(asIScriptEngine* engine, const ScriptDocumentationOptions& options)
@@ -677,11 +683,11 @@ int DocumentationGenerator::Impl::Prepare() {
 	for (const auto type : objectTypes)
 		decorator.appendObjectType(type);
 
-	// append all types to the decorator
+	// append all enums to the decorator
 	for (const auto type : enumTypes)
 		decorator.appendObjectType(type);
 
-	// append all types to the decorator
+	// append all function definitions to the decorator
 	for (const auto type : funcDefTypes)
 		decorator.appendObjectType(type);
 
@@ -711,6 +717,7 @@ int DocumentationGenerator::Impl::generate() {
 	// output content
 	output.appendRaw(R"^(<div id="content">)^");
 	GenerateClasses();
+	GenerateExpectedFunctions();
 	GenerateGlobalFunctions();
 	GenerateEnums();
 	GenerateFuncDefs();
@@ -739,6 +746,25 @@ void DocumentationGenerator::Impl::GenerateContentBlock(const char* title, const
 	output.appendRawF(R"^(<div class="block" name="%s">)^" "\n", LowerCaseTempBuf(title));
 	cb();
 	output.appendRaw("</div>\n");
+}
+
+void DocumentationGenerator::Impl::GenerateExpectedFunctions() {
+	// bail if nothing to do
+	if (expectedFunctions.empty())
+		return;
+	
+	// create output
+	GenerateSubHeader(1, "Expected Functions", "___expectedfunctions", [&]() {
+		for (auto func : expectedFunctions)
+		{
+			GenerateContentBlock("", func, [&]() {
+				output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func).c_str());
+				const char* documentation = GetDocumentationForExpectedFunction(func);
+				if (documentation && *documentation)
+					output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
+			});
+		}
+	});
 }
 
 void DocumentationGenerator::Impl::GenerateGlobalFunctions() {
@@ -1160,6 +1186,13 @@ int DocumentationGenerator::Impl::DocumentType(int typeId, const char* string) {
 	return typeId;
 }
 
+void DocumentationGenerator::Impl::DocumentExpectedFunction(const std::string& decl, const char* desc) {
+	if (decl.size() > 0) {
+		if (!expectedFunctionDocumentation.insert({decl, {desc}}).second)
+			return asDOCGEN_AlreadyDocumented;
+	}
+}
+
 const char* DocumentationGenerator::Impl::GetDocumentationForType(const asITypeInfo* type) const {
 	auto it = objectTypeDocumentation.find(type);
 	if (it != objectTypeDocumentation.end())
@@ -1188,6 +1221,13 @@ const char* DocumentationGenerator::Impl::GetDocumentationForFuncDefType(const a
 const char* DocumentationGenerator::Impl::GetDocumentationForFunction(const asIScriptFunction* function) const {
 	auto it = functionDocumentation.find(function);
 	if (it != functionDocumentation.end())
+		return it->second.c_str();
+	return "";
+}
+
+const char* DocumentationGenerator::Impl::GetDocumentationForExpectedFunction(const char* decl) const {
+	auto it = expectedFunctionDocumentation.find(std::string(decl));
+	if (it != expectedFunctionDocumentation.end())
 		return it->second.c_str();
 	return "";
 }

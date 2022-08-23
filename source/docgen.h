@@ -96,6 +96,7 @@ public:
 	int DocumentObjectMethod(int r, const char* string);
 	int DocumentInterface(int r, const char* string);
 	int DocumentInterfaceMethod(int r, const char* string);
+	void DocumentExpectedFunction(const std::string& decl, const char* desc);
 	int Generate();
 private:
 	class Impl;
@@ -117,9 +118,12 @@ public:
 	inline DocumentationGenerator(asIScriptEngine* /*engine*/, const ScriptDocumentationOptions& /*options*/) {}
 	inline int DocumentGlobalFunction(int r, const char* /*string*/) { return r; }
 	inline int DocumentObjectType(int r, const char* /*string*/) { return r; }
+	inline int DocumentObjectEnum(int r, const char* /*string*/) { return r; }
+	inline int DocumentObjectFuncDef(int r, const char* /*string*/) { return r; }
 	inline int DocumentObjectMethod(int r, const char* /*string*/) { return r; }
-	inline int DocumentInterface(int r, const char* string) { return r; }
-	inline int DocumentInterfaceMethod(int r, const char* string) { return r; }
+	inline int DocumentInterface(int r, const char* /*string*/) { return r; }
+	inline int DocumentInterfaceMethod(int r, const char* /*string*/) { return r; }
+	inline void DocumentExpectedFunction(const std::string& /*decl*/, const char* /*desc*/) { }
 	inline int Generate() { return asDOCGEN_DocumentationNotBuiltIn; }
 };
 
