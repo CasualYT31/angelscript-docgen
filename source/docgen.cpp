@@ -555,7 +555,7 @@ private:
 	const char* GetDocumentationForEnumType(const asITypeInfo* type) const;
 	const char* GetDocumentationForFunction(const asIScriptFunction* function) const;
 	const char* GetDocumentationForFuncDefType(const asITypeInfo* type) const;
-	const char* GetDocumentationForExpectedFunction(const char* decl) const;
+	const char* GetDocumentationForExpectedFunction(const std::string& decl) const;
 	// our input
 	asIScriptEngine*						engine;
 	ScriptDocumentationOptions				options;
@@ -756,7 +756,7 @@ void DocumentationGenerator::Impl::GenerateExpectedFunctions() {
 	GenerateSubHeader(1, "Expected Functions", "___expectedfunctions", [&]() {
 		for (auto func : expectedFunctionDocumentation)
 		{
-			GenerateContentBlock("", func.first, [&]() {
+			GenerateContentBlock("", func.first.c_str(), [&]() {
 				output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func.first).c_str());
 				const char* documentation = GetDocumentationForExpectedFunction(func.first);
 				if (documentation && *documentation)
@@ -1224,8 +1224,8 @@ const char* DocumentationGenerator::Impl::GetDocumentationForFunction(const asIS
 	return "";
 }
 
-const char* DocumentationGenerator::Impl::GetDocumentationForExpectedFunction(const char* decl) const {
-	auto it = expectedFunctionDocumentation.find(std::string(decl));
+const char* DocumentationGenerator::Impl::GetDocumentationForExpectedFunction(const std::string& decl) const {
+	auto it = expectedFunctionDocumentation.find(decl);
 	if (it != expectedFunctionDocumentation.end())
 		return it->second.c_str();
 	return "";
