@@ -32,6 +32,10 @@ The add-on has been tested with AngelScript 2.34 only.
 - Added function pointer/function definitions
 - Added namespaces to everything
 
+## Additional Features CasualYT31
+
+- `outputFile` is now a C++ string.
+
 ## Dependencies
 
 - The generated HTML file depends on jQuery. This is used through a CDN, so there is no need to ship it with the generated file.
