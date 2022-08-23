@@ -767,7 +767,8 @@ void DocumentationGenerator::Impl::GenerateExpectedFunctions() {
 	GenerateSubHeader(1, "Expected Functions", "___expectedfunctions", [&]() {
 		for (auto func : expectedFunctionDocumentation)
 		{
-			GenerateContentBlock("", extractName(func.first).c_str(), [&]() {
+			std::string funcName = extractName(func.first);
+			GenerateContentBlock(funcName.c_str(), funcName.c_str(), [&]() {
 				output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func.first).c_str());
 				const char* documentation = GetDocumentationForExpectedFunction(func.first);
 				if (documentation && *documentation)
