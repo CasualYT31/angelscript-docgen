@@ -289,9 +289,9 @@ namespace {
 			file.open(outputFile, std::ios_base::binary);
 			file << output;
 			file.close();
-			return AngelScript::asDOCGEN_Success;
+			return asDOCGEN_Success;
 		} catch (const std::exception&) {
-			return AngelScript::asDOCGEN_FailedToWriteFile;
+			return asDOCGEN_FailedToWriteFile;
 		}
 	}
 
@@ -300,7 +300,7 @@ namespace {
 	class TextDecorator {
 	public:
 		TextDecorator(bool syntaxHighlight, bool nl2br, bool htmlSafe, bool linkifyUrls);
-		void appendObjectType(const AngelScript::asITypeInfo* typeInfo);
+		void appendObjectType(const asITypeInfo* typeInfo);
 
 		std::string decorateAngelScript(std::string text);
 		std::string decorateDocumentation(std::string text);
@@ -347,9 +347,9 @@ namespace {
 		}
 	}
 
-	void TextDecorator::appendObjectType(const AngelScript::asITypeInfo* typeInfo) {
+	void TextDecorator::appendObjectType(const asITypeInfo* typeInfo) {
 		if (m_syntaxHighlight)
-			m_asKeywords[typeInfo->GetName()] = typeInfo->GetFlags() & AngelScript::asOBJ_VALUE ? "AS-valuetype" : "AS-classtype";
+			m_asKeywords[typeInfo->GetName()] = typeInfo->GetFlags() & asOBJ_VALUE ? "AS-valuetype" : "AS-classtype";
 	}
 
 	std::string TextDecorator::decorateAngelScript(std::string text) {
@@ -769,12 +769,12 @@ void DocumentationGenerator::Impl::GenerateFuncDefs()
 
 	// create output
 	GenerateSubHeader(1, "Function Definitions", "___funcdeftypes", [&]() {
-		for (const AngelScript::asITypeInfo* e : funcDefTypes)
+		for (const asITypeInfo* e : funcDefTypes)
 		{
 			std::string namespacedName = GetNamespacedName(e);
 			GenerateSubHeader(2, namespacedName.c_str(), e->GetName(), [&]() {
 				GenerateContentBlock(namespacedName.c_str(), e->GetName(), [&]() {
-					AngelScript::asIScriptFunction* func = e->GetFuncdefSignature();
+					asIScriptFunction* func = e->GetFuncdefSignature();
 					output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(func->GetDeclaration(true, true, true)).c_str());
 					const char* documentation = GetDocumentationForFuncDefType(e);
 					if (documentation && *documentation)
@@ -793,7 +793,7 @@ void DocumentationGenerator::Impl::GenerateEnums()
 
 	// create output
 	GenerateSubHeader(1, "Enum Types", "___enumtypes", [&]() {
-		for (const AngelScript::asITypeInfo* e : enumTypes)
+		for (const asITypeInfo* e : enumTypes)
 		{
 			std::string namespacedName = GetNamespacedName(e);
 			GenerateSubHeader(2, namespacedName.c_str(), e->GetName(), [&]() {
@@ -802,7 +802,7 @@ void DocumentationGenerator::Impl::GenerateEnums()
 					if (documentation && *documentation)
 						output.appendRawF(R"^(<div class="documentation">%s</div>)^", decorator.decorateDocumentation(documentation).c_str());
 
-					for (AngelScript::asUINT eIndex = 0; eIndex < e->GetEnumValueCount(); ++eIndex) {
+					for (asUINT eIndex = 0; eIndex < e->GetEnumValueCount(); ++eIndex) {
 						int value = 0;
 						const char* szName = e->GetEnumValueByIndex(eIndex, &value);
 
