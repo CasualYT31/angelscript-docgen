@@ -1188,8 +1188,8 @@ int DocumentationGenerator::Impl::DocumentType(int typeId, const char* string) {
 
 void DocumentationGenerator::Impl::DocumentExpectedFunction(const std::string& decl, const char* desc) {
 	if (decl.size() > 0) {
-		if (!expectedFunctionDocumentation.insert({decl, {desc}}).second)
-			return asDOCGEN_AlreadyDocumented;
+		// attempt to insert
+		expectedFunctionDocumentation.insert({decl, {desc}})
 	}
 }
 
