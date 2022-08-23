@@ -35,6 +35,10 @@ The add-on has been tested with AngelScript 2.34 only.
 ## Additional Features CasualYT31
 
 - `outputFile` is now a C++ string.
+- Added stub methods for new methods created by me and by the programmers before me (e.g. ZEROPERIL).
+- Allow the user to document functions that the C++ code expects/calls.
+
+*Note:* when you give a function declaration to `DocumentExpectedFunction()`, ensure that the function's name is immediately followed by the `(` without any whitespace in between them. Otherwise the summary panel and search functionality for expected functions won't work.
 
 ## Dependencies
 
