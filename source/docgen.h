@@ -5,6 +5,7 @@
 // Avoid having to inform include path if header is already include before
 #include <angelscript.h>
 #endif
+#include <string>
 
 // If not otherwise defined beforehand, this define will be set to 1, so that documentation
 // strings end up in the build executable/so/dll.
