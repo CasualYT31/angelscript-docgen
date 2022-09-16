@@ -29,6 +29,7 @@ namespace {
 <head>
 	<title>%%PROJECT_NAME%%</title>
 	<script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/split.js/1.6.0/split.min.js"></script>
 	<style>
 		* {
 			box-sizing: border-box;
@@ -40,9 +41,6 @@ namespace {
 			color: %%MAIN_FOREGROUND_COLOR%%;
 			margin: 0;
 			padding: 0;
-			display: grid;
-			grid-template-columns: %%SUMMARY_WIDTH%% 1fr;
-			grid-template-rows: auto 1fr;
 			height: 100vh;
 			overflow: hidden;
 		}
@@ -53,14 +51,13 @@ namespace {
 			color: %%HEADER_FOREGROUND_COLOR%%;
 			border-bottom: %%HEADER_BORDER%%;
 			padding: 20px;
-			display: grid;
-			grid-template-columns: auto 1fr;
-			grid-area: 1/1/span 1/span 2;
+			height: 130px;
+			display: flex;
+			flex-direction: row;
 		}
 		#header #namecontainer {
-			display: grid;
-			grid-template-columns: auto 1fr;
-			align-items: center;
+			display: flex;
+			align-self: center;
 		}
 		#header #namecontainer img {
 			padding-right: 10px;
@@ -72,16 +69,22 @@ namespace {
 			float: right;
 			width: 400px;
 		}
+		#headerpadding {
+			padding-left: 100px;
+		}
 		#summary {
 			border-right: %%HEADER_BORDER%%;
 			padding: 20px;
 			overflow: auto;
-			grid-area: 2/1/span 1/span 1;
+		}
+		#summarypane {
+			padding: 20px;
+			overflow-y: scroll;
 		}
 		#content {
 			padding: 20px;
+			overflow-y: scroll;
 			overflow: auto;
-			grid-area: 2/2/span 1/span 1;
 		}
 		h1 {
 			font-size: 150%;
@@ -149,11 +152,25 @@ namespace {
 			font-size: 80%;
 			color: %%GENERATED_ON_COLOR%%;
 		}
-
+		.splitview {
+			display: flex;
+			flex-direction: row;
+			max-height: calc(100vh - 130px);
+		}
+		.gutter {
+			background-color: #eee;
+			background-repeat: no-repeat;
+			background-position: 50%;
+		}
+		.gutter.gutter-horizontal {
+			background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeMwF+yNnOs5KSvgAAAABJRU5ErkJggg==');
+			cursor: col-resize;
+		}
 		%%ADDITIONAL_CSS%%
 	</style>
 	<script type="text/javascript">
-		$(document).ready(() => {
+		$(function() {
+			debugger;
 			// handle search shortcut
 			$(document).keydown((ev) => {
 				if (ev.key == '%%SEARCH_HOTKEY%%' || ev.code == '%%SEARCH_HOTKEY%%')
@@ -178,7 +195,7 @@ namespace {
 			})();
 
 			// handle collapsing/expanding the summary
-			$('#summary div.expandable').click((ev)=>{
+			$('#summarypane div.expandable').click((ev)=>{
 				let s = $(ev.target).parents('div.expandable').first(),
 					t = s.siblings('div.indented');
 				t.toggleClass('hidden');
@@ -194,6 +211,11 @@ namespace {
 				}, 250);
 			});
 
+
+			Split(['#summarypane', '#content'], {
+				sizes: [25, 75]
+			});
+
 			// any additional javascript
 			%%ADDITIONAL_JAVASCRIPT%%
 		});
@@ -205,11 +227,14 @@ namespace {
 			%%LOGO_IMAGE%%
 			<span>%%PROJECT_NAME%% - %%DOCUMENTATION_NAME%% v%%INTERFACE_VERSION%%</span>
 		</div>
+		<div id="headerpadding"></div>
 		<div id="searchbox"><input type="text" class="api" placeholder="Search the documentation, hit %%SEARCH_HOTKEY%% to focus..."></div>
 	</div>
+	<div class="splitview">
 )^";
 
 	const char* const HtmlEnd = R"^(
+	</div>
 </body>
 </html>
 )^";
@@ -697,7 +722,7 @@ int DocumentationGenerator::Impl::generate() {
 	output.append(HtmlStart);
 
 	// output summary
-	output.appendRaw(R"^(<div id="summary">)^");
+	output.appendRaw(R"^(<div id="summarypane">)^");
 	OutputSummary(CreateSummary());
 	if (options.addTimestamp) {
 		auto t = std::time(nullptr);
@@ -707,7 +732,7 @@ int DocumentationGenerator::Impl::generate() {
 		output.appendRawF(R"^(<div class="generated_on">Generated on %s</div>)^", dt.str().c_str());
 	}
 	output.appendRaw(R"^(</div>)^");
-
+	output.appendRaw(R"^(<div id="separator"></div>)^");
 	// output content
 	output.appendRaw(R"^(<div id="content">)^");
 	GenerateClasses();
