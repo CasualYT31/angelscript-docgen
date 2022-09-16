@@ -31,6 +31,7 @@ The add-on has been tested with AngelScript 2.34 only.
 - Added enums
 - Added function pointer/function definitions
 - Added namespaces to everything
+- Added a splitter bar to allow resizing of the panes
 
 ## Dependencies
 
