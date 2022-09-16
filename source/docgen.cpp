@@ -79,11 +79,10 @@ namespace {
 		}
 		#summarypane {
 			padding: 20px;
-			overflow-y: scroll;
+			overflow-y: auto;
 		}
 		#content {
 			padding: 20px;
-			overflow-y: scroll;
 			overflow: auto;
 		}
 		h1 {
