@@ -845,9 +845,8 @@ void DocumentationGenerator::Impl::GenerateEnums()
 
 						if (szName)
 						{
-							char szBuffer[128] = { 0 };
 							std::string name = szName;
-							std::string doc = namespacedName + std::string("::") + szName + std::string(" = ") + itoa(value, szBuffer, 10);
+							std::string doc = namespacedName + std::string("::") + szName + std::string(" = ") + std::to_string(value);
 							output.appendRawF(R"^(<div class="api">%s</div>)^", decorator.decorateAngelScript(doc).c_str());
 						}
 					}
